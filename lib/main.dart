@@ -51,7 +51,7 @@ class _PlainScreenState extends State<PlainScreen> with WidgetsBindingObserver {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    WakelockPlus.enable(); // Prevents screen sleep
+    WakelockPlus.enable(); // prevent sleep
     _startForegroundTask();
     _ensureLocationPermissionAndStartTimer();
   }
