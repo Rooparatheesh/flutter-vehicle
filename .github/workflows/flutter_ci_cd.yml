@@ -6,47 +6,43 @@ on:
   pull_request:
     branches: [ main, master ]
 
+#
+permissions:
+  contents: write   #  allows creating releases and uploading assets
+
 jobs:
   build:
     name: Build Flutter App
     runs-on: ubuntu-latest
 
     steps:
-      #  Checkout your code
       - name: Checkout code
         uses: actions/checkout@v4
 
-      #  Setup Flutter
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
           flutter-version: '3.35.7'
           channel: stable
 
-      # Install dependencies
       - name: Install dependencies
         run: flutter pub get
 
-      # Analyze Dart code (ignore warnings)
       - name: Analyze code
         run: flutter analyze || true
 
-      #  Run tests (optional)
       - name: Run tests
         run: flutter test || echo "No tests found"
 
-      #  Build release APK
       - name: Build release APK
         run: flutter build apk --release
 
-      # Upload APK as a workflow artifact
       - name: Upload APK to GitHub Actions artifacts
         uses: actions/upload-artifact@v4
         with:
           name: app-release
           path: build/app/outputs/flutter-apk/app-release.apk
 
-      #  Create GitHub Release and attach APK
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
