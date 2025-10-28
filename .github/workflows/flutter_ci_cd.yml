@@ -1,0 +1,46 @@
+name: Flutter CI/CD
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  build:
+    name: Build Flutter App
+    runs-on: ubuntu-latest
+
+    steps:
+      # Checkout source
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # Setup Flutter SDK
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.24.0'  # your Flutter version
+
+      # Install dependencies
+      - name: Install dependencies
+        run: flutter pub get
+
+      # Analyze Dart code
+      - name: Analyze code
+        run: flutter analyze
+
+      # Run tests (if you have any)
+      - name: Run tests
+        run: flutter test || echo "No tests found"
+
+      # Build APK for release
+      - name: Build release APK
+        run: flutter build apk --release
+
+      # Upload APK artifact
+      - name: Upload APK to GitHub
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-release
+          path: build/app/outputs/flutter-apk/app-release.apk

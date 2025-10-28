@@ -132,7 +132,7 @@ class _PlainScreenState extends State<PlainScreen> with WidgetsBindingObserver {
     await FlutterForegroundTask.startService(
       notificationTitle: 'App Active',
       notificationText: 'App is running in the foreground service',
-      callback: startCallback, // ✅ background tracking
+      callback: startCallback, //  background tracking
     );
   }
 
