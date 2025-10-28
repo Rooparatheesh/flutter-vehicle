@@ -16,21 +16,21 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      #  Setup correct Flutter version
+      #  Setup Flutter
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.35.7'  # match your local Flutter version
+          flutter-version: '3.35.7'
           channel: stable
 
-      #  Install dependencies
+      # Install dependencies
       - name: Install dependencies
         run: flutter pub get
 
-      #  Analyze Dart code
-      - name: Analyze code (ignore warnings)
+      # Analyze Dart code (ignore warnings)
+      - name: Analyze code
         run: flutter analyze || true
-        
+
       #  Run tests (optional)
       - name: Run tests
         run: flutter test || echo "No tests found"
@@ -39,9 +39,24 @@ jobs:
       - name: Build release APK
         run: flutter build apk --release
 
-      #  Upload build artifact
-      - name: Upload APK to GitHub
+      # Upload APK as a workflow artifact
+      - name: Upload APK to GitHub Actions artifacts
         uses: actions/upload-artifact@v4
         with:
           name: app-release
           path: build/app/outputs/flutter-apk/app-release.apk
+
+      #  Create GitHub Release and attach APK
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v1.0.${{ github.run_number }}
+          name: "Flutter App Release ${{ github.run_number }}"
+          body: |
+            🚀 **Automated Build Generated**
+            - Branch: ${{ github.ref_name }}
+            - Commit: ${{ github.sha }}
+            - Build Number: ${{ github.run_number }}
+          files: build/app/outputs/flutter-apk/app-release.apk
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
