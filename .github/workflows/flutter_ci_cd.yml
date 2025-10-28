@@ -12,33 +12,34 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # Checkout source
+      #  Checkout your code
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # Setup Flutter SDK
+      #  Setup correct Flutter version
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.24.0'  # your Flutter version
+          flutter-version: '3.35.7'  # match your local Flutter version
+          channel: stable
 
-      # Install dependencies
+      #  Install dependencies
       - name: Install dependencies
         run: flutter pub get
 
-      # Analyze Dart code
+      #  Analyze Dart code
       - name: Analyze code
         run: flutter analyze
 
-      # Run tests (if you have any)
+      #  Run tests (optional)
       - name: Run tests
         run: flutter test || echo "No tests found"
 
-      # Build APK for release
+      #  Build release APK
       - name: Build release APK
         run: flutter build apk --release
 
-      # Upload APK artifact
+      #  Upload build artifact
       - name: Upload APK to GitHub
         uses: actions/upload-artifact@v4
         with:
