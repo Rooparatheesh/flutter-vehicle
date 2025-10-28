@@ -36,7 +36,7 @@ class _PlainScreenState extends State<PlainScreen> with WidgetsBindingObserver {
   int _selectedIndex = 0;
   bool _iconsDisabled = false;
 
-  // polling interval in seconds (start at 20)
+ 
   int _intervalSeconds = 20;
 
   Timer? _locationTimer;
