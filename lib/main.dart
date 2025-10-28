@@ -1,11 +1,62 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:isolate';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 import 'package:flutter_foreground_task/flutter_foreground_task.dart';
-import 'package:geolocator/geolocator.dart'; 
+import 'package:geolocator/geolocator.dart';
+
+/// Background task entry point
+@pragma('vm:entry-point')
+void startCallback() {
+  FlutterForegroundTask.setTaskHandler(LocationTaskHandler());
+}
+
+/// Background location handler
+class LocationTaskHandler extends TaskHandler {
+  Timer? _timer;
+
+  @override
+  Future<void> onStart(DateTime timestamp, SendPort? sendPort) async {
+    debugPrint('Background task started at $timestamp');
+
+    _timer = Timer.periodic(const Duration(seconds: 20), (timer) async {
+      try {
+        final pos = await Geolocator.getCurrentPosition(
+          desiredAccuracy: LocationAccuracy.best,
+        );
+        debugPrint(
+          '[BG Location] ${DateTime.now()} -> lat: ${pos.latitude}, lon: ${pos.longitude}, acc: ${pos.accuracy}',
+        );
+      } catch (e) {
+        debugPrint('BG location error: $e');
+      }
+    });
+  }
+
+  Future<void> onEvent(DateTime timestamp, SendPort? sendPort) async {}
+
+  @override
+  Future<void> onDestroy(DateTime timestamp, SendPort? sendPort) async {
+    _timer?.cancel();
+    debugPrint('Background task stopped.');
+  }
+
+  void onButtonPressed(String id) {}
+
+  @override
+  void onNotificationPressed() {
+    FlutterForegroundTask.launchApp();
+  }
+  
+  @override
+  void onRepeatEvent(DateTime timestamp, SendPort? sendPort) {
+    // TODO: implement onRepeatEvent
+  }
+}
 
 void main() {
   runApp(const MyApp());
@@ -35,10 +86,7 @@ class PlainScreen extends StatefulWidget {
 class _PlainScreenState extends State<PlainScreen> with WidgetsBindingObserver {
   int _selectedIndex = 0;
   bool _iconsDisabled = false;
-
- 
   int _intervalSeconds = 20;
-
   Timer? _locationTimer;
 
   final List<Map<String, dynamic>> _pages = [
@@ -56,7 +104,6 @@ class _PlainScreenState extends State<PlainScreen> with WidgetsBindingObserver {
     _ensureLocationPermissionAndStartTimer();
   }
 
-  // Initialize and start foreground service (kept from your code)
   Future<void> _startForegroundTask() async {
     FlutterForegroundTask.init(
       androidNotificationOptions: AndroidNotificationOptions(
@@ -68,7 +115,7 @@ class _PlainScreenState extends State<PlainScreen> with WidgetsBindingObserver {
         iconData: NotificationIconData(
           resType: ResourceType.mipmap,
           resPrefix: ResourcePrefix.ic,
-          name: 'launcher', // uses app icon
+          name: 'launcher',
         ),
       ),
       iosNotificationOptions: const IOSNotificationOptions(
@@ -85,49 +132,54 @@ class _PlainScreenState extends State<PlainScreen> with WidgetsBindingObserver {
     await FlutterForegroundTask.startService(
       notificationTitle: 'App Active',
       notificationText: 'App is running in the foreground service',
+      callback: startCallback, // ✅ background tracking
     );
   }
 
-  // Request permission and start the timer
   Future<void> _ensureLocationPermissionAndStartTimer() async {
     LocationPermission permission = await Geolocator.checkPermission();
     if (permission == LocationPermission.denied) {
       permission = await Geolocator.requestPermission();
     }
-    if (permission == LocationPermission.deniedForever || permission == LocationPermission.denied) {
-      // Permission not granted - just print and do not start
-      print('Location permission denied. Please enable in settings.');
+    if (permission == LocationPermission.deniedForever ||
+        permission == LocationPermission.denied) {
+      if (kDebugMode) {
+        print('Location permission denied. Please enable in settings.');
+      }
       return;
     }
 
-    // Also ensure location services are enabled
     final serviceEnabled = await Geolocator.isLocationServiceEnabled();
     if (!serviceEnabled) {
-      print('Location services are disabled. Please enable them.');
+      if (kDebugMode) {
+        print('Location services are disabled. Please enable them.');
+      }
       return;
     }
 
-    _startLocationTimer(); // start periodic location printing
+    _startLocationTimer();
   }
 
   void _startLocationTimer() {
-    // Cancel existing, if any
     _locationTimer?.cancel();
 
-    // Start a new periodic timer using current interval
-    _locationTimer = Timer.periodic(Duration(seconds: _intervalSeconds), (timer) async {
+    _locationTimer =
+        Timer.periodic(Duration(seconds: _intervalSeconds), (timer) async {
       try {
         final pos = await Geolocator.getCurrentPosition(
           desiredAccuracy: LocationAccuracy.best,
         );
-        print('[Location Poll] ${DateTime.now().toIso8601String()} -> '
-            'lat: ${pos.latitude}, lon: ${pos.longitude}, accuracy: ${pos.accuracy}');
+        if (kDebugMode) {
+          print('[Location Poll] ${DateTime.now().toIso8601String()} -> '
+              'lat: ${pos.latitude}, lon: ${pos.longitude}, accuracy: ${pos.accuracy}');
+        }
       } catch (e) {
-        print('Failed to get location: $e');
+        if (kDebugMode) {
+          print('Failed to get location: $e');
+        }
       }
     });
 
-    // Immediately print once (optional; keeps first print without waiting full interval)
     _printOneLocationNow();
   }
 
@@ -136,14 +188,17 @@ class _PlainScreenState extends State<PlainScreen> with WidgetsBindingObserver {
       final pos = await Geolocator.getCurrentPosition(
         desiredAccuracy: LocationAccuracy.best,
       );
-      print('[Immediate Location] ${DateTime.now().toIso8601String()} -> '
-          'lat: ${pos.latitude}, lon: ${pos.longitude}, accuracy: ${pos.accuracy}');
+      if (kDebugMode) {
+        print('[Immediate Location] ${DateTime.now().toIso8601String()} -> '
+            'lat: ${pos.latitude}, lon: ${pos.longitude}, accuracy: ${pos.accuracy}');
+      }
     } catch (e) {
-      print('Immediate location read failed: $e');
+      if (kDebugMode) {
+        print('Immediate location read failed: $e');
+      }
     }
   }
 
-  // ✅ Stop service and exit app
   void _exitApp() async {
     await FlutterForegroundTask.stopService();
     if (Platform.isAndroid) {
@@ -171,10 +226,11 @@ class _PlainScreenState extends State<PlainScreen> with WidgetsBindingObserver {
 
   Future<bool> _onWillPop() async => false;
 
-  // The Accept action: change polling interval from 20 -> 5
   void _onAcceptPressed() {
     if (_intervalSeconds == 5) {
-      print('Already in 5-second mode.');
+      if (kDebugMode) {
+        print('Already in 5-second mode.');
+      }
       return;
     }
 
@@ -182,12 +238,10 @@ class _PlainScreenState extends State<PlainScreen> with WidgetsBindingObserver {
       _intervalSeconds = 5;
     });
 
-    // Restart timer with new interval
     if (_locationTimer != null) {
       print('Accept pressed: switching interval to 5 seconds.');
       _startLocationTimer();
     } else {
-      // If timer not running (maybe permissions not granted earlier), ensure permissions then start.
       _ensureLocationPermissionAndStartTimer();
     }
   }
@@ -202,7 +256,6 @@ class _PlainScreenState extends State<PlainScreen> with WidgetsBindingObserver {
           backgroundColor: _pages[_selectedIndex]['color'],
           foregroundColor: Colors.white,
           actions: [
-            // Accept button (placed in AppBar actions)
             TextButton(
               onPressed: _onAcceptPressed,
               child: const Text(
